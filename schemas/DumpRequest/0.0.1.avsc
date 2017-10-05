@@ -1,0 +1,9 @@
+{"namespace": "merger.avro",
+ "type": "record",
+ "name": "DumpRequest",
+ "fields": [
+     {"name": "subject", "type": "string"},
+     {"name": "subjectVersion", "type": "string"},
+     {"name": "datas", "type": "array", "items": "bytes"}
+ ]
+}
