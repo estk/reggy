@@ -20,7 +20,17 @@ type cacheEntry struct {
 	body string
 }
 
-type ReggyConfig struct{}
+type ReggyConfig struct {
+	schemaDir string
+	schemaExt string
+}
+
+func NewReggyConfig() ReggyConfig {
+	return ReggyConfig{
+		"schemas",
+		"avsc",
+	}
+}
 
 type Reggy struct {
 	ReggyConfig
@@ -44,11 +54,12 @@ func (r *Reggy) SchemaHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Write([]byte(schema))
+	log.Printf("Served schema: %s, version: %s", name, version)
 }
 
 func New() *Reggy {
 	reg := &Reggy{
-		ReggyConfig{},
+		NewReggyConfig(),
 		mux.NewRouter(),
 		make(map[string](map[string]cacheEntry)),
 	}
@@ -80,7 +91,7 @@ func (r *Reggy) GetSchema(name, version string) (string, error) {
 }
 
 func (r Reggy) loadSchema(name, version string) (string, error) {
-	fn := fmt.Sprintf("schemas/%s/%s.avsc", name, version)
+	fn := fmt.Sprintf("%s/%s/%s.%s", r.schemaDir, name, version, r.schemaExt)
 	bs, err := ioutil.ReadFile(fn)
 	return string(bs), err
 }
