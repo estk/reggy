@@ -4,14 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"regexp"
+
+	mux "github.com/gorilla/mux"
 )
 
 func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/schemas/{name}/{version}", SchemaHandler)
-	http.Handle("/", r)
+	reg := New()
+	log.Fatal(http.ListenAndServe(":8000", reg.router))
 }
 
 type cacheEntry struct {
@@ -22,7 +24,36 @@ type ReggyConfig struct{}
 
 type Reggy struct {
 	ReggyConfig
+	router      *mux.Router
 	schemaCache map[string](map[string]cacheEntry)
+}
+
+func (r *Reggy) configureRouter() {
+	r.router.HandleFunc("/schemas/{name}/{version}", r.SchemaHandler)
+	http.Handle("/", r.router)
+}
+
+func (r *Reggy) SchemaHandler(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	name := vars["name"]
+	version := vars["version"]
+	schema, err := r.GetSchema(name, version)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	w.Write([]byte(schema))
+}
+
+func New() *Reggy {
+	reg := &Reggy{
+		ReggyConfig{},
+		mux.NewRouter(),
+		make(map[string](map[string]cacheEntry)),
+	}
+	reg.configureRouter()
+	return reg
 }
 
 func (r *Reggy) GetSchema(name, version string) (string, error) {
@@ -49,13 +80,15 @@ func (r *Reggy) GetSchema(name, version string) (string, error) {
 }
 
 func (r Reggy) loadSchema(name, version string) (string, error) {
-	fn := fmt.Sprintf("schema/%s/%s.avro", name, version)
+	fn := fmt.Sprintf("schemas/%s/%s.avsc", name, version)
 	bs, err := ioutil.ReadFile(fn)
 	return string(bs), err
 }
+
 func checkSchemaVersion(ver string) (bool, error) {
 	return regexp.MatchString(`[0-9]+\.[0-9]+\\.[0-9]+`, ver)
 }
+
 func checkSchemaName(name string) (bool, error) {
 	return regexp.MatchString(`^[a-zA-Z0-9_]*$`, name)
 }
